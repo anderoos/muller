@@ -5,9 +5,10 @@ description: Receives user-suggested improvements and logs them as behavioral di
 
 # Autopilot
 
-Autopilot is a lightweight instruction layer that sits above all other skills. It captures user-suggested improvements as directives and applies them at runtime — before any subsequent skill executes. Base skill files are never modified.
+Autopilot is a lightweight instruction/ edge layer that sits above all other skills. It captures user-suggested improvements as directives and applies them at runtime — before any subsequent skill executes. Base skill files are never modified. This allows user to custom tailor their project life cycles.
 
-**Always read this file first before running any other skill.**
+**Always read this file first before running any other skill. User directives takes priority over base skills**
+TODO: Add user guardrails
 
 ## Commands
 

@@ -44,6 +44,16 @@ pub fn load_skills(name: &str) -> Result<String> {
         .with_context(|| format!("Could not load skill '{}' from {}", name, nested.display()))
 }
 
+pub fn append_autopilot_directive(directive: &str) -> Result<()> {
+    let path = skills_dir().join("autopilot").join("SKILLS.md");
+    let mut content = std::fs::read_to_string(&path)
+        .with_context(|| format!("Could not read autopilot skill from {}", path.display()))?;
+    content.push_str(&format!("\n- {}", directive));
+    std::fs::write(&path, content)
+        .with_context(|| "Could not write autopilot directive")?;
+    Ok(())
+}
+
 pub async fn run(prompt: &str, skill: Option<&str>) -> Result<()> {
     // Build system prompt: base + autopilot directives + optional skill context
     let mut system_prompt = SYSTEM_PROMPT.to_string();
