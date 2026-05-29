@@ -1,2 +1,4 @@
 /target
 /.idea
+methodology/.embeddings_cache.json
+scripts/.venv/

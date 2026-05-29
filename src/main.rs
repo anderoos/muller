@@ -4,58 +4,192 @@ mod auth;
 mod cli;
 mod config;
 
-// `use` brings items into scope so you can write `Result` instead of `anyhow::Result<T, ...>`.
-use anyhow::Result;
-// `Parser` is the Clap trait that gives `Cli` its `.parse()` method.
+use anyhow::{Context, Result};
 use clap::Parser;
-// Import both enum types from our `cli` module — needed to pattern-match on them below.
 use cli::{AutopilotCommand, Command};
+use std::path::PathBuf;
+use std::process;
 
-// `#[tokio::main]` is a procedural macro that wraps `main` in a Tokio async runtime.
-// Without it you can't use `async fn main` or call `.await` at the top level.
+// ---------------------------------------------------------------------------
+// ChromaDB Docker lifecycle
+// ---------------------------------------------------------------------------
+
+const CONTAINER_NAME: &str = "mueller-chromadb";
+const CHROMA_IMAGE: &str = "chromadb/chroma:latest";
+const CHROMA_VOLUME: &str = "mueller-chroma-data";
+
+/// RAII guard: stops the ChromaDB container when dropped (only if we started it).
+struct ChromaGuard {
+    started_by_us: bool,
+}
+
+impl Drop for ChromaGuard {
+    fn drop(&mut self) {
+        if self.started_by_us {
+            let _ = process::Command::new("docker")
+                .args(["stop", CONTAINER_NAME])
+                .output();
+        }
+    }
+}
+
+/// Checks whether the named container is currently running.
+fn chroma_is_running() -> bool {
+    process::Command::new("docker")
+        .args(["ps", "-q", "-f", &format!("name={}", CONTAINER_NAME)])
+        .output()
+        .map(|o| !String::from_utf8_lossy(&o.stdout).trim().is_empty())
+        .unwrap_or(false)
+}
+
+/// Starts the ChromaDB Docker container (no-op if already running).
+/// Returns a guard that stops the container on drop.
+fn start_chromadb() -> ChromaGuard {
+    if chroma_is_running() {
+        return ChromaGuard { started_by_us: false };
+    }
+
+    let status = process::Command::new("docker")
+        .args([
+            "run", "-d", "--rm",
+            "--name", CONTAINER_NAME,
+            "-p", "8000:8000",
+            "-v", &format!("{}:/chroma/chroma", CHROMA_VOLUME),
+            CHROMA_IMAGE,
+        ])
+        .status();
+
+    match status {
+        Ok(s) if s.success() => ChromaGuard { started_by_us: true },
+        _ => {
+            eprintln!("Warning: could not start ChromaDB container.");
+            ChromaGuard { started_by_us: false }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Embedding script helpers
+// ---------------------------------------------------------------------------
+
+fn scripts_dir() -> PathBuf {
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(parent) = exe.parent() {
+            let p = parent.join("scripts");
+            if p.exists() {
+                return p;
+            }
+        }
+    }
+    PathBuf::from("scripts")
+}
+
+fn methodology_cache_path() -> PathBuf {
+    PathBuf::from("methodology/.embeddings_cache.json")
+}
+
+/// Calls the Python embedding script. Pass `force = true` to bypass hash checks.
+fn run_embed_script(force: bool) -> Result<()> {
+    let script = scripts_dir().join("embed_methodology.py");
+    if !script.exists() {
+        anyhow::bail!(
+            "Embedding script not found at {}",
+            script.display()
+        );
+    }
+
+    let mut cmd = process::Command::new("python3");
+    cmd.arg(&script);
+    if force {
+        cmd.arg("--force");
+    }
+
+    let cfg = config::load_config();
+    match cfg.embedding {
+        Some(ref emb) => {
+            let env_var = match emb.provider {
+                config::EmbeddingProvider::Anthropic  => "ANTHROPIC_API_KEY",
+                config::EmbeddingProvider::OpenAI     => "OPENAI_API_KEY",
+                config::EmbeddingProvider::OpenRouter => "OPENROUTER_API_KEY",
+            };
+            cmd.env(env_var, &emb.api_key);
+            cmd.env("MUELLER_EMBEDDING_PROVIDER", match emb.provider {
+                config::EmbeddingProvider::Anthropic  => "anthropic",
+                config::EmbeddingProvider::OpenAI     => "openai",
+                config::EmbeddingProvider::OpenRouter => "openrouter",
+            });
+        }
+        None => {
+            eprintln!("No embedding API configured. Run `mueller setup` to add one.");
+            return Ok(());
+        }
+    }
+
+    let output = cmd
+        .output()
+        .context("Could not run embed_methodology.py — is python3 installed?")?;
+
+    print!("{}", String::from_utf8_lossy(&output.stdout));
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        anyhow::bail!("Embedding script failed: {}", stderr.trim());
+    }
+
+    Ok(())
+}
+
+/// Runs an initial embedding pass if no cache file exists yet (first-time setup).
+fn maybe_bootstrap_embeddings() {
+    if !methodology_cache_path().exists() {
+        println!("First run: bootstrapping methodology embeddings…");
+        if let Err(e) = run_embed_script(false) {
+            eprintln!("Warning: initial embedding failed: {}", e);
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Entry point
+// ---------------------------------------------------------------------------
+
 #[tokio::main]
-// `async fn` marks main as an async function — required when calling `.await` inside it.
-// `-> Result<()>` means main either returns `Ok(())` (success) or an `anyhow::Error`.
-// Returning a `Result` from main lets Rust print the error and exit with code 1 automatically.
 async fn main() -> Result<()> {
-    // `cli::Cli::parse()` reads `std::env::args()`, validates them against the struct definition,
-    // and returns a populated `Cli`. If args are invalid, Clap prints help and exits.
     let cli = cli::Cli::parse();
 
-    // `match` is Rust's exhaustive pattern matching. Every possible variant of `cli.command`
-    // must be handled — the compiler enforces this, so you can't accidentally miss a case.
+    // Bring ChromaDB up; the guard tears it down when main returns.
+    let _chroma = start_chromadb();
+
+    // Auto-embed on first run (no-op afterwards unless --refresh-embeddings).
+    maybe_bootstrap_embeddings();
+
+    // Handle --refresh-embeddings before any subcommand.
+    if cli.refresh_embeddings {
+        println!("Refreshing methodology embeddings…");
+        run_embed_script(false)?;
+        println!("Done.");
+        return Ok(());
+    }
+
     match cli.command {
-        // `Some(Command::Login)` — the user ran `mueller login`. The `Some(...)` unwraps the
-        // `Option<Command>` and simultaneously matches the inner variant.
         Some(Command::Login) => {
-            // `.await` suspends this async task until `login()` completes.
-            // `?` unwraps the `Result`: if it's `Err`, main returns that error immediately.
             auth::login().await?;
-            // `run_setup()` asks the user for their interaction preference (CLI or Slack),
-            // then collects only the credentials that preference requires.
             let cfg = config::run_setup()?;
             config::save_config(&cfg)?;
             println!("✓ All set. Run any Mueller command to get started.");
         }
 
         Some(Command::Setup) => {
-            // Standalone re-run — useful for changing interaction mode or rotating credentials
-            // without re-authenticating with Claude.
             let cfg = config::run_setup()?;
             config::save_config(&cfg)?;
             println!("✓ Configuration updated.");
         }
 
         Some(Command::Ask { query }) => {
-            // Destructuring in the pattern: `{ query }` binds the `query` field of the
-            // `Ask` variant directly into a local variable named `query`.
-            // `&query` passes a borrowed reference to avoid moving the String into `run()`.
             agent::run(&query, Some("ASKS")).await?;
         }
 
         Some(Command::Init { brief }) => {
-            // `format!` builds a new owned `String` by interpolating variables into a template.
-            // `\` at the end of the string literal continues onto the next line without a newline.
             let prompt = format!(
                 "Start a new project from the following brief. Break it down into epics and \
                 tickets, assign owners based on role and capacity, and produce a full Jira \
@@ -75,8 +209,6 @@ async fn main() -> Result<()> {
         }
 
         Some(Command::Standup) => {
-            // A string literal `"..."` is a `&'static str` — it lives in the binary's
-            // read-only data segment for the entire lifetime of the program.
             let prompt = "Trigger the daily standup relay. Prompt each team member for progress, \
                 capture blockers, and update Jira ticket statuses based on responses.";
             agent::run(prompt, Some("active-sprint")).await?;
@@ -90,17 +222,12 @@ async fn main() -> Result<()> {
         }
 
         Some(Command::Log { file }) => {
-            // `match file` on an `Option<String>` — handles both the Some and None cases.
             let prompt = match file {
-                // `Some(path)` — user passed `--file /path/to/transcript`. `path` is a `String`.
                 Some(path) => format!(
                     "Transcribe the meeting from the following file, extract action items, \
                     decisions, and takeaways, and push tasks to Jira.\n\nFile: {}",
                     path
                 ),
-                // `None` — no file flag; fall back to asking the user to paste a transcript.
-                // `.to_string()` converts the `&str` literal into an owned `String` to match
-                // the `String` type that `format!` produces in the `Some` arm.
                 None => "Transcribe the meeting transcript provided, extract action items, \
                     decisions, and takeaways, and push tasks to Jira. Paste the transcript now."
                     .to_string(),
@@ -147,35 +274,27 @@ async fn main() -> Result<()> {
         }
 
         Some(Command::Autopilot { command }) => {
-            // Destructure the nested enum variant into its inner `AutopilotCommand`.
-            // `match command` now switches on the sub-subcommand.
             let directive = match command {
-                // Each arm extracts the `behavior: String` field and builds a directive string.
                 AutopilotCommand::Add { behavior } => format!("add {}", behavior),
                 AutopilotCommand::Override { behavior } => format!("override {}", behavior),
                 AutopilotCommand::Less { behavior } => format!("less {}", behavior),
             };
-            // `?` propagates any file IO error from appending to the autopilot skill file.
             agent::append_autopilot_directive(&directive)?;
-            // `{}` calls the `Display` trait on `directive` — the default string formatting.
             println!("Autopilot directive saved: {}", directive);
         }
 
-        // `None` — no subcommand was typed. Check whether the user passed a bare query string.
         None => match cli.query {
-            // If a query was passed (e.g. `mueller "how many tickets are open?"`), run it.
             Some(query) => agent::run(&query, None).await?,
-            // No subcommand and no query — print usage instructions.
             None => {
                 println!("Mueller — Your personal AI project management agent\n");
                 println!("Usage:");
                 println!("  mueller \"quick question\"");
                 println!("  mueller ask \"question\"");
                 println!("  mueller login");
+                println!("  mueller --refresh-embeddings");
             }
         },
     }
 
-    // Returning `Ok(())` from main signals a clean exit (exit code 0).
     Ok(())
 }

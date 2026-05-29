@@ -7,6 +7,20 @@ use std::path::PathBuf;
 pub struct MuellerConfig {
     pub jira: Option<JiraConfig>,
     pub slack: Option<SlackConfig>,
+    pub embedding: Option<EmbeddingConfig>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub enum EmbeddingProvider {
+    Anthropic,
+    OpenAI,
+    OpenRouter,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct EmbeddingConfig {
+    pub provider: EmbeddingProvider,
+    pub api_key: String,
 }
 
 // `pub enum` with two unit variants — the user either wants channel posts or DMs.
@@ -204,9 +218,36 @@ pub fn setup_slack() -> Result<SlackConfig> {
     Ok(SlackConfig { bot_token, team_id, destination, delivery_mode })
 }
 
+pub fn setup_embedding() -> Result<Option<EmbeddingConfig>> {
+    println!("\nEmbedding API (optional)");
+    println!("Only required to run `mueller --refresh-embeddings`.");
+    println!("This key is stored locally and never transmitted elsewhere.\n");
+
+    let choice = choose(
+        "Which provider would you like to use?",
+        &[
+            "Anthropic  (Claude Opus — recommended)",
+            "OpenAI     (GPT-4o)",
+            "OpenRouter (route to any model)",
+            "Skip",
+        ],
+    )?;
+
+    if choice == 3 {
+        return Ok(None);
+    }
+
+    let (provider, hint) = match choice {
+        0 => (EmbeddingProvider::Anthropic,  "sk-ant-api03-..."),
+        1 => (EmbeddingProvider::OpenAI,     "sk-..."),
+        _ => (EmbeddingProvider::OpenRouter, "sk-or-..."),
+    };
+
+    let api_key = prompt_masked(&format!("API key ({})", hint))?;
+    Ok(Some(EmbeddingConfig { provider, api_key }))
+}
+
 // Top-level setup orchestrator called by both `mueller login` and `mueller setup`.
-// Asks the user how they want to interact, then runs only the relevant credential flows.
-// Returns a fully populated `MuellerConfig` ready to be saved.
 pub fn run_setup() -> Result<MuellerConfig> {
     let mode = choose(
         "How do you want to interact with Mueller?",
@@ -216,17 +257,15 @@ pub fn run_setup() -> Result<MuellerConfig> {
         ],
     )?;
 
-    // Jira is always required — it's the data source for every command.
     let jira = setup_jira()?;
 
-    // `mode == 1` means the user chose "Slack". Only then do we ask for Slack credentials.
-    // `if ... else` is an expression in Rust — both branches must return the same type (`Option<SlackConfig>`).
     let slack = if mode == 1 {
         Some(setup_slack()?)
     } else {
         None
     };
 
-    // Struct literal — `jira: Some(jira)` wraps the value in Option to match the field type.
-    Ok(MuellerConfig { jira: Some(jira), slack })
+    let embedding = setup_embedding()?;
+
+    Ok(MuellerConfig { jira: Some(jira), slack, embedding })
 }

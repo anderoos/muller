@@ -23,6 +23,10 @@ pub struct Cli {
     // `Option<String>` — if the user types `mueller "some text"` without a subcommand,
     // Clap captures it here. `String` is an owned, heap-allocated UTF-8 string.
     pub query: Option<String>,
+
+    /// Re-embed changed methodology files into ChromaDB (incremental by default)
+    #[arg(long)]
+    pub refresh_embeddings: bool,
 }
 
 // `#[derive(Subcommand)]` generates the logic to parse one of these enum variants
