@@ -28,6 +28,18 @@ The brief must explicitly address all of the following:
 - Sprint-ready backlog ordered by priority and dependency
 - Flagged risks or gaps in the brief that need resolution before work begins
 
+## Jira MCP Tools
+
+Execute in this order:
+1. `jira_get_project` — verify the target project exists and retrieve its issue type scheme
+2. `jira_create_issue` with `issuetype: Epic` — create one epic per major workstream
+3. `jira_create_issue` with `issuetype: Story` and `parent: EPIC-KEY` — create stories under each epic
+4. `jira_create_issue` with `issuetype: Subtask` — break down complex stories where subtasks are needed
+5. `jira_update_issue` — set `story_points`, `assignee`, `priority`, and `labels` on each created issue
+6. `jira_search_issues` — verify the created board structure before reporting completion
+
+Always set `assignee` based on role fit and capacity data from the brief.
+
 ## When to use
 
 Always use when initializing a new project. Run capacity-planner and okr-aligner first to ensure assignments are realistic and work is strategically aligned.

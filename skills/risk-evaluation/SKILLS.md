@@ -23,6 +23,13 @@ Analyzes historical ticket patterns to surface the early signals that predict pr
 - Confidence score per risk entry
 - Recommended mitigations ranked by impact
 
+## Jira MCP Tools
+
+1. `jira_search_issues` with JQL `project = PROJECT AND sprint in openSprints()` — load all active sprint tickets
+2. `jira_search_issues` with JQL `project = PROJECT AND updated <= -7d AND status != Done` — surface stale tickets
+3. `jira_get_issue` — fetch full history (changelog) for flagged tickets to inspect reassignment and estimate changes
+4. `jira_add_comment` — leave a risk notice comment on high-severity tickets so assignees are notified in Jira
+
 ## When to use
 
 Run weekly during any active sprint. Always run before sprint planning when historical data is available. Feed output into escalation-engine when high-confidence risks are unacknowledged.

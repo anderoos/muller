@@ -21,6 +21,15 @@ Drives the daily standup loop via Slack. Delivers prompts to each team member, c
 - Jira ticket status updated automatically based on responses
 - Escalated blockers surfaced for blocker-tracker and escalation-engine
 
+## Jira MCP Tools
+
+Use these tools for standup execution:
+1. `jira_search_issues` with JQL `project = PROJECT AND sprint in openSprints() AND assignee = MEMBER` — fetch each team member's open tickets before messaging them
+2. `jira_get_transitions` — list the valid status transitions for a ticket
+3. `jira_transition_issue` — move a ticket to Done / In Progress / Blocked based on the member's standup response
+4. `jira_add_comment` — log the standup response as a comment on relevant tickets
+5. `jira_update_issue` — update the `priority` field or add blockers when a member reports one
+
 ## When to use
 
 Every working day during an active sprint. Trigger at the start of the standup window. Receives pre-digested blocker and drift signals from supporting skills before delivery.

@@ -22,6 +22,16 @@ Fires automatically at the end of a meeting. Converts audio to text, extracts th
 - Meeting purpose, key takeaways, and next steps
 - Jira tasks created and assigned automatically
 
+## Jira MCP Tools
+
+Use these tools in this order:
+1. `jira_get_project` — confirm the active project and fetch the team roster
+2. `jira_search_issues` with JQL `project = PROJECT AND sprint in openSprints()` — load current sprint context
+3. `jira_create_issue` — create one issue per extracted action item (type: Task or Story)
+4. `jira_add_comment` — attach the meeting summary as a comment to any existing tickets discussed
+
+Always set `assignee` on created issues based on the attendee whose role matches the action item.
+
 ## When to use
 
 Trigger automatically on meeting end via calendar integration or recording hook. Works for sprint ceremonies, stakeholder syncs, design reviews, and ad-hoc calls.
