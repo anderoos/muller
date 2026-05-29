@@ -1,0 +1,19 @@
+[package]
+name = "mueller"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rig-core = "0.9"  # AI abstraction layer
+tokio = { version = "1", features = ["full"] }  # async
+reqwest = { version = "0.12", features = ["json"] }  # http
+serde = { version = "1", features = ["derive"] }  # serialization
+serde_json = "1"
+anyhow = "1"  # error handling
+clap = { version = "4", features = ["derive"] }  # CLI parser
+sha2 = "0.10"
+base64 = "0.22"
+dirs = "5"
+urlencoding = "2"
+rand = "0.8"
+rpassword = "7"

@@ -1,0 +1,759 @@
+{
+  "collection": "pm_methodology",
+  "embed_model": "openai/text-embedding-3-large",
+  "total_chunks": 73,
+  "documents": [
+    {
+      "title": "Agile",
+      "sections": [
+        {
+          "id": "agile.md::0::Overview & Philosophy",
+          "section": "Overview & Philosophy",
+          "concepts": [
+            "Overview",
+            "Philosophy"
+          ],
+          "source": "agile.md",
+          "preview": "# Agile ## Overview & Philosophy  Agile is an **umbrella philosophy** for software development (and increasingly other d\u2026"
+        },
+        {
+          "id": "agile.md::1::The Four Values (Agile Manifesto)",
+          "section": "The Four Values (Agile Manifesto)",
+          "concepts": [
+            "Four",
+            "Values",
+            "Agile",
+            "Manifesto"
+          ],
+          "source": "agile.md",
+          "preview": "# Agile ## The Four Values (Agile Manifesto)  1. **Individuals and interactions** over processes and tools 2. **Working \u2026"
+        },
+        {
+          "id": "agile.md::2::The Twelve Principles",
+          "section": "The Twelve Principles",
+          "concepts": [
+            "Twelve",
+            "Principles"
+          ],
+          "source": "agile.md",
+          "preview": "# Agile ## The Twelve Principles  1. Satisfy the customer through early and continuous delivery of valuable software. 2.\u2026"
+        },
+        {
+          "id": "agile.md::3::Work Structure",
+          "section": "Work Structure",
+          "concepts": [
+            "Work",
+            "Structure"
+          ],
+          "source": "agile.md",
+          "preview": "# Agile ## Work Structure  - Work is broken into **small, deliverable increments**. - Exact structure depends on the imp\u2026"
+        },
+        {
+          "id": "agile.md::4::Planning",
+          "section": "Planning",
+          "concepts": [
+            "Planning"
+          ],
+          "source": "agile.md",
+          "preview": "# Agile ## Planning  - **Continuous and adaptive.** Planning happens at multiple horizons \u2014 release, iteration, daily. -\u2026"
+        },
+        {
+          "id": "agile.md::5::Cadence",
+          "section": "Cadence",
+          "concepts": [
+            "Cadence"
+          ],
+          "source": "agile.md",
+          "preview": "# Agile ## Cadence  - **Iterative.** Work is delivered in short cycles (typically 1\u20134 weeks). - Specific cadence depends\u2026"
+        },
+        {
+          "id": "agile.md::6::Scope Changes",
+          "section": "Scope Changes",
+          "concepts": [
+            "Scope",
+            "Changes"
+          ],
+          "source": "agile.md",
+          "preview": "# Agile ## Scope Changes  - **Welcomed.** Agile Principle #2 explicitly embraces changing requirements. - Scope is manag\u2026"
+        },
+        {
+          "id": "agile.md::7::Blockers",
+          "section": "Blockers",
+          "concepts": [
+            "Blockers"
+          ],
+          "source": "agile.md",
+          "preview": "# Agile ## Blockers  - Surfaced quickly through daily communication (standups, board visibility). - Team self-organizes \u2026"
+        },
+        {
+          "id": "agile.md::8::Reporting & Metrics",
+          "section": "Reporting & Metrics",
+          "concepts": [
+            "Reporting",
+            "Metrics"
+          ],
+          "source": "agile.md",
+          "preview": "# Agile ## Reporting & Metrics  - **Working software** is the primary measure of progress. - Common metrics: velocity, c\u2026"
+        },
+        {
+          "id": "agile.md::9::Ceremonies / Meetings",
+          "section": "Ceremonies / Meetings",
+          "concepts": [
+            "Ceremonies",
+            "Meetings"
+          ],
+          "source": "agile.md",
+          "preview": "# Agile ## Ceremonies / Meetings  Agile itself does not prescribe specific ceremonies \u2014 those come from implementing fra\u2026"
+        },
+        {
+          "id": "agile.md::10::Roles",
+          "section": "Roles",
+          "concepts": [
+            "Roles"
+          ],
+          "source": "agile.md",
+          "preview": "# Agile ## Roles  Agile does not prescribe specific roles. Common patterns across frameworks:  - **Product Owner / Custo\u2026"
+        },
+        {
+          "id": "agile.md::11::Definition of Done",
+          "section": "Definition of Done",
+          "concepts": [
+            "Definition",
+            "Done"
+          ],
+          "source": "agile.md",
+          "preview": "# Agile ## Definition of Done  - Defined by the team (and sometimes the organization). - Typically includes: coded, test\u2026"
+        },
+        {
+          "id": "agile.md::12::Best Suited For",
+          "section": "Best Suited For",
+          "concepts": [
+            "Best",
+            "Suited"
+          ],
+          "source": "agile.md",
+          "preview": "# Agile ## Best Suited For  - Projects with **evolving or unclear requirements**. - Environments where **fast feedback**\u2026"
+        },
+        {
+          "id": "agile.md::13::Style-Specific: Agile as an Umbrella",
+          "section": "Style-Specific: Agile as an Umbrella",
+          "concepts": [
+            "Style-Specific",
+            "Agile",
+            "Umbrella"
+          ],
+          "source": "agile.md",
+          "preview": "# Agile ## Style-Specific: Agile as an Umbrella  Agile is a philosophy, not a process. When someone says they \"do Agile,\u2026"
+        }
+      ]
+    },
+    {
+      "title": "Extreme Programming (XP)",
+      "sections": [
+        {
+          "id": "xp.md::0::Overview & Philosophy",
+          "section": "Overview & Philosophy",
+          "concepts": [
+            "Overview",
+            "Philosophy"
+          ],
+          "source": "xp.md",
+          "preview": "# Extreme Programming (XP) ## Overview & Philosophy  Extreme Programming (XP) is an **Agile software development methodo\u2026"
+        },
+        {
+          "id": "xp.md::1::Work Structure",
+          "section": "Work Structure",
+          "concepts": [
+            "Work",
+            "Structure"
+          ],
+          "source": "xp.md",
+          "preview": "# Extreme Programming (XP) ## Work Structure  - Work is expressed as **User Stories** \u2014 short descriptions of desired fu\u2026"
+        },
+        {
+          "id": "xp.md::2::Planning",
+          "section": "Planning",
+          "concepts": [
+            "Planning"
+          ],
+          "source": "xp.md",
+          "preview": "# Extreme Programming (XP) ## Planning  - **The Planning Game:** a structured negotiation between business and developme\u2026"
+        },
+        {
+          "id": "xp.md::3::Cadence",
+          "section": "Cadence",
+          "concepts": [
+            "Cadence"
+          ],
+          "source": "xp.md",
+          "preview": "# Extreme Programming (XP) ## Cadence  - **Short iterations:** typically **1\u20132 weeks** (XP originally recommended 1\u20133 we\u2026"
+        },
+        {
+          "id": "xp.md::4::Scope Changes",
+          "section": "Scope Changes",
+          "concepts": [
+            "Scope",
+            "Changes"
+          ],
+          "source": "xp.md",
+          "preview": "# Extreme Programming (XP) ## Scope Changes  - **Embraced.** XP Principle: *\"Embrace change.\"* - Customer can add, remov\u2026"
+        },
+        {
+          "id": "xp.md::5::Blockers",
+          "section": "Blockers",
+          "concepts": [
+            "Blockers"
+          ],
+          "source": "xp.md",
+          "preview": "# Extreme Programming (XP) ## Blockers  - Surfaced during **daily standups** and through continuous pair programming (pa\u2026"
+        },
+        {
+          "id": "xp.md::6::Reporting & Metrics",
+          "section": "Reporting & Metrics",
+          "concepts": [
+            "Reporting",
+            "Metrics"
+          ],
+          "source": "xp.md",
+          "preview": "# Extreme Programming (XP) ## Reporting & Metrics  - **Velocity:** stories (or story points) completed per iteration. Pr\u2026"
+        },
+        {
+          "id": "xp.md::7::Ceremonies / Meetings",
+          "section": "Ceremonies / Meetings",
+          "concepts": [
+            "Ceremonies",
+            "Meetings"
+          ],
+          "source": "xp.md",
+          "preview": "# Extreme Programming (XP) ## Ceremonies / Meetings  | Ceremony | Frequency | Purpose | |----------|-----------|--------\u2026"
+        },
+        {
+          "id": "xp.md::8::Roles",
+          "section": "Roles",
+          "concepts": [
+            "Roles"
+          ],
+          "source": "xp.md",
+          "preview": "# Extreme Programming (XP) ## Roles  | Role | Responsibility | |------|---------------| | **Customer** | Writes user sto\u2026"
+        },
+        {
+          "id": "xp.md::9::Definition of Done",
+          "section": "Definition of Done",
+          "concepts": [
+            "Definition",
+            "Done"
+          ],
+          "source": "xp.md",
+          "preview": "# Extreme Programming (XP) ## Definition of Done  - A story is done when:   1. All **unit tests** pass (written before t\u2026"
+        },
+        {
+          "id": "xp.md::10::The 12 Practices",
+          "section": "The 12 Practices",
+          "concepts": [
+            "Practices"
+          ],
+          "source": "xp.md",
+          "preview": "# Extreme Programming (XP) ## The 12 Practices  Grouped into four areas:  **Fine-Scale Feedback:** 1. **Pair Programming\u2026"
+        },
+        {
+          "id": "xp.md::11::Best Suited For",
+          "section": "Best Suited For",
+          "concepts": [
+            "Best",
+            "Suited"
+          ],
+          "source": "xp.md",
+          "preview": "# Extreme Programming (XP) ## Best Suited For  - **Small to medium teams** (2\u201312 developers) working on software. - Proj\u2026"
+        },
+        {
+          "id": "xp.md::12::Style-Specific: Engineering-First",
+          "section": "Style-Specific: Engineering-First",
+          "concepts": [
+            "Style-Specific",
+            "Engineering-First"
+          ],
+          "source": "xp.md",
+          "preview": "# Extreme Programming (XP) ## Style-Specific: Engineering-First  XP is unique among Agile frameworks in its heavy emphas\u2026"
+        }
+      ]
+    },
+    {
+      "title": "Kanban",
+      "sections": [
+        {
+          "id": "kanban.md::0::Overview & Philosophy",
+          "section": "Overview & Philosophy",
+          "concepts": [
+            "Overview",
+            "Philosophy"
+          ],
+          "source": "kanban.md",
+          "preview": "# Kanban ## Overview & Philosophy  Kanban is a **management method** (not a methodology or framework) applied on top of \u2026"
+        },
+        {
+          "id": "kanban.md::1::Principles",
+          "section": "Principles",
+          "concepts": [
+            "Principles"
+          ],
+          "source": "kanban.md",
+          "preview": "# Kanban ## Principles  **Change Management Principles:** 1. Start with what you do now. 2. Agree to pursue improvement \u2026"
+        },
+        {
+          "id": "kanban.md::2::Work Structure",
+          "section": "Work Structure",
+          "concepts": [
+            "Work",
+            "Structure"
+          ],
+          "source": "kanban.md",
+          "preview": "# Kanban ## Work Structure  - Work items flow through a **Kanban board** that models the actual workflow (not an idealiz\u2026"
+        },
+        {
+          "id": "kanban.md::3::Planning",
+          "section": "Planning",
+          "concepts": [
+            "Planning"
+          ],
+          "source": "kanban.md",
+          "preview": "# Kanban ## Planning  - **No prescribed planning cadence.** Planning is continuous. - Work is **pulled** into the system\u2026"
+        },
+        {
+          "id": "kanban.md::4::Cadence",
+          "section": "Cadence",
+          "concepts": [
+            "Cadence"
+          ],
+          "source": "kanban.md",
+          "preview": "# Kanban ## Cadence  - **No fixed iterations.** Work flows continuously. - **Cadences** (recurring feedback loops) evolv\u2026"
+        },
+        {
+          "id": "kanban.md::5::Scope Changes",
+          "section": "Scope Changes",
+          "concepts": [
+            "Scope",
+            "Changes"
+          ],
+          "source": "kanban.md",
+          "preview": "# Kanban ## Scope Changes  - **Handled naturally.** New work enters the backlog; it is pulled in when capacity allows. -\u2026"
+        },
+        {
+          "id": "kanban.md::6::Blockers",
+          "section": "Blockers",
+          "concepts": [
+            "Blockers"
+          ],
+          "source": "kanban.md",
+          "preview": "# Kanban ## Blockers  - **Visualized on the board** (typically a blocker icon/tag on the card). - Blocked items are high\u2026"
+        },
+        {
+          "id": "kanban.md::7::Reporting & Metrics",
+          "section": "Reporting & Metrics",
+          "concepts": [
+            "Reporting",
+            "Metrics"
+          ],
+          "source": "kanban.md",
+          "preview": "# Kanban ## Reporting & Metrics  Core metrics: - **Lead Time:** time from commitment point to delivery. - **Delivery Rat\u2026"
+        },
+        {
+          "id": "kanban.md::8::Ceremonies / Meetings (Cadences)",
+          "section": "Ceremonies / Meetings (Cadences)",
+          "concepts": [
+            "Ceremonies",
+            "Meetings",
+            "Cadences"
+          ],
+          "source": "kanban.md",
+          "preview": "# Kanban ## Ceremonies / Meetings (Cadences)  Kanban does not prescribe ceremonies \u2014 it recommends **cadences** (feedbac\u2026"
+        },
+        {
+          "id": "kanban.md::9::Roles",
+          "section": "Roles",
+          "concepts": [
+            "Roles"
+          ],
+          "source": "kanban.md",
+          "preview": "# Kanban ## Roles  - **No prescribed roles.** Kanban is applied to existing organizational structures. - Existing roles \u2026"
+        },
+        {
+          "id": "kanban.md::10::Definition of Done",
+          "section": "Definition of Done",
+          "concepts": [
+            "Definition",
+            "Done"
+          ],
+          "source": "kanban.md",
+          "preview": "# Kanban ## Definition of Done  - Defined as **pull criteria** \u2014 explicit policies that state when a work item can move \u2026"
+        },
+        {
+          "id": "kanban.md::11::Best Suited For",
+          "section": "Best Suited For",
+          "concepts": [
+            "Best",
+            "Suited"
+          ],
+          "source": "kanban.md",
+          "preview": "# Kanban ## Best Suited For  - Teams that want to **improve an existing process** without wholesale change. - Work with \u2026"
+        },
+        {
+          "id": "kanban.md::12::Style-Specific: WIP Limits as the Core Mechanism",
+          "section": "Style-Specific: WIP Limits as the Core Mechanism",
+          "concepts": [
+            "Style-Specific",
+            "Limits",
+            "Core",
+            "Mechanism"
+          ],
+          "source": "kanban.md",
+          "preview": "# Kanban ## Style-Specific: WIP Limits as the Core Mechanism  The defining mechanism of Kanban is the **WIP limit** \u2014 a \u2026"
+        },
+        {
+          "id": "kanban.md::13::Style-Specific: STATIK",
+          "section": "Style-Specific: STATIK",
+          "concepts": [
+            "Style-Specific",
+            "STATIK"
+          ],
+          "source": "kanban.md",
+          "preview": "# Kanban ## Style-Specific: STATIK  **Systems Thinking Approach To Introducing Kanban** \u2014 a repeatable process for desig\u2026"
+        }
+      ]
+    },
+    {
+      "title": "Project Management Styles: A Comparative Reference",
+      "sections": [
+        {
+          "id": "meta/pm-styles-comparison.md::0::Executive Summary",
+          "section": "Executive Summary",
+          "concepts": [
+            "Executive",
+            "Summary"
+          ],
+          "source": "meta/pm-styles-comparison.md",
+          "preview": "# Project Management Styles: A Comparative Reference ## Executive Summary  This guide provides lean, structured descript\u2026"
+        },
+        {
+          "id": "meta/pm-styles-comparison.md::1::Individual Style Files",
+          "section": "Individual Style Files",
+          "concepts": [
+            "Individual",
+            "Style",
+            "Files"
+          ],
+          "source": "meta/pm-styles-comparison.md",
+          "preview": "# Project Management Styles: A Comparative Reference ## Individual Style Files  | Style | File | One-Line Summary | |---\u2026"
+        },
+        {
+          "id": "meta/pm-styles-comparison.md::2::Comparison Matrix",
+          "section": "Comparison Matrix",
+          "concepts": [
+            "Comparison",
+            "Matrix"
+          ],
+          "source": "meta/pm-styles-comparison.md",
+          "preview": "# Project Management Styles: A Comparative Reference ## Comparison Matrix  | Category | Waterfall | Agile (Philosophy) |\u2026"
+        },
+        {
+          "id": "meta/pm-styles-comparison.md::3::Key Differentiators",
+          "section": "Key Differentiators",
+          "concepts": [
+            "Differentiators"
+          ],
+          "source": "meta/pm-styles-comparison.md",
+          "preview": "# Project Management Styles: A Comparative Reference ## Key Differentiators  ### Waterfall vs. Everything Else Waterfall\u2026"
+        },
+        {
+          "id": "meta/pm-styles-comparison.md::4::Caveats & Open Questions",
+          "section": "Caveats & Open Questions",
+          "concepts": [
+            "Caveats",
+            "Open",
+            "Questions"
+          ],
+          "source": "meta/pm-styles-comparison.md",
+          "preview": "# Project Management Styles: A Comparative Reference ## Caveats & Open Questions  1. **Hybrid approaches are common.** M\u2026"
+        },
+        {
+          "id": "meta/pm-styles-comparison.md::5::Sources",
+          "section": "Sources",
+          "concepts": [
+            "Sources"
+          ],
+          "source": "meta/pm-styles-comparison.md",
+          "preview": "# Project Management Styles: A Comparative Reference ## Sources  1. Schwaber, K. & Sutherland, J. (2020). *The Scrum Gui\u2026"
+        }
+      ]
+    },
+    {
+      "title": "Scrum",
+      "sections": [
+        {
+          "id": "scrum.md::0::Overview & Philosophy",
+          "section": "Overview & Philosophy",
+          "concepts": [
+            "Overview",
+            "Philosophy"
+          ],
+          "source": "scrum.md",
+          "preview": "# Scrum ## Overview & Philosophy  Scrum is a **lightweight framework** for developing and sustaining complex products. I\u2026"
+        },
+        {
+          "id": "scrum.md::1::Work Structure",
+          "section": "Work Structure",
+          "concepts": [
+            "Work",
+            "Structure"
+          ],
+          "source": "scrum.md",
+          "preview": "# Scrum ## Work Structure  - **Product Backlog:** an emergent, ordered list of everything needed to improve the product.\u2026"
+        },
+        {
+          "id": "scrum.md::2::Planning",
+          "section": "Planning",
+          "concepts": [
+            "Planning"
+          ],
+          "source": "scrum.md",
+          "preview": "# Scrum ## Planning  - **Sprint Planning** kicks off each Sprint. Timeboxed to 8 hours max (for a 1-month Sprint).   - T\u2026"
+        },
+        {
+          "id": "scrum.md::3::Cadence",
+          "section": "Cadence",
+          "concepts": [
+            "Cadence"
+          ],
+          "source": "scrum.md",
+          "preview": "# Scrum ## Cadence  - **Sprints:** fixed-length, 1 month or less. A new Sprint starts immediately after the previous one\u2026"
+        },
+        {
+          "id": "scrum.md::4::Scope Changes",
+          "section": "Scope Changes",
+          "concepts": [
+            "Scope",
+            "Changes"
+          ],
+          "source": "scrum.md",
+          "preview": "# Scrum ## Scope Changes  - **Sprint Goal is protected.** No changes that would endanger the Sprint Goal. - Scope within\u2026"
+        },
+        {
+          "id": "scrum.md::5::Blockers",
+          "section": "Blockers",
+          "concepts": [
+            "Blockers"
+          ],
+          "source": "scrum.md",
+          "preview": "# Scrum ## Blockers  - Surfaced during the **Daily Scrum** (and throughout the day as needed). - The **Scrum Master** is\u2026"
+        },
+        {
+          "id": "scrum.md::6::Reporting & Metrics",
+          "section": "Reporting & Metrics",
+          "concepts": [
+            "Reporting",
+            "Metrics"
+          ],
+          "source": "scrum.md",
+          "preview": "# Scrum ## Reporting & Metrics  - **Sprint Review:** inspect the Increment and adapt the Product Backlog. Working sessio\u2026"
+        },
+        {
+          "id": "scrum.md::7::Ceremonies / Meetings (Scrum Events)",
+          "section": "Ceremonies / Meetings (Scrum Events)",
+          "concepts": [
+            "Ceremonies",
+            "Meetings",
+            "Scrum",
+            "Events"
+          ],
+          "source": "scrum.md",
+          "preview": "# Scrum ## Ceremonies / Meetings (Scrum Events)  | Event | Timebox (1-month Sprint) | Purpose | |-------|---------------\u2026"
+        },
+        {
+          "id": "scrum.md::8::Roles (Accountabilities)",
+          "section": "Roles (Accountabilities)",
+          "concepts": [
+            "Roles",
+            "Accountabilities"
+          ],
+          "source": "scrum.md",
+          "preview": "# Scrum ## Roles (Accountabilities)  | Role | Accountability | |------|---------------| | **Product Owner** | Maximize p\u2026"
+        },
+        {
+          "id": "scrum.md::9::Definition of Done",
+          "section": "Definition of Done",
+          "concepts": [
+            "Definition",
+            "Done"
+          ],
+          "source": "scrum.md",
+          "preview": "# Scrum ## Definition of Done  - A **formal description** of the state of the Increment when it meets the quality measur\u2026"
+        },
+        {
+          "id": "scrum.md::10::Artifacts & Commitments",
+          "section": "Artifacts & Commitments",
+          "concepts": [
+            "Artifacts",
+            "Commitments"
+          ],
+          "source": "scrum.md",
+          "preview": "# Scrum ## Artifacts & Commitments  | Artifact | Commitment | |----------|-----------| | Product Backlog | Product Goal \u2026"
+        },
+        {
+          "id": "scrum.md::11::Best Suited For",
+          "section": "Best Suited For",
+          "concepts": [
+            "Best",
+            "Suited"
+          ],
+          "source": "scrum.md",
+          "preview": "# Scrum ## Best Suited For  - Complex product development where requirements evolve. - Teams of 10 or fewer people. - En\u2026"
+        },
+        {
+          "id": "scrum.md::12::Style-Specific: Empiricism + Purposeful Incompleteness",
+          "section": "Style-Specific: Empiricism + Purposeful Incompleteness",
+          "concepts": [
+            "Style-Specific",
+            "Empiricism",
+            "Purposeful",
+            "Incompleteness"
+          ],
+          "source": "scrum.md",
+          "preview": "# Scrum ## Style-Specific: Empiricism + Purposeful Incompleteness  The Scrum Guide explicitly states: *\"The Scrum framew\u2026"
+        }
+      ]
+    },
+    {
+      "title": "Waterfall",
+      "sections": [
+        {
+          "id": "waterfall.md::0::Overview & Philosophy",
+          "section": "Overview & Philosophy",
+          "concepts": [
+            "Overview",
+            "Philosophy"
+          ],
+          "source": "waterfall.md",
+          "preview": "# Waterfall ## Overview & Philosophy  Waterfall is a sequential, linear project management methodology where work flows \u2026"
+        },
+        {
+          "id": "waterfall.md::1::Work Structure",
+          "section": "Work Structure",
+          "concepts": [
+            "Work",
+            "Structure"
+          ],
+          "source": "waterfall.md",
+          "preview": "# Waterfall ## Work Structure  - Work is broken into **phases**: Requirements \u2192 Design \u2192 Implementation \u2192 Testing \u2192 Depl\u2026"
+        },
+        {
+          "id": "waterfall.md::2::Planning",
+          "section": "Planning",
+          "concepts": [
+            "Planning"
+          ],
+          "source": "waterfall.md",
+          "preview": "# Waterfall ## Planning  - **Upfront, comprehensive planning.** The bulk of planning occurs before any execution. - A de\u2026"
+        },
+        {
+          "id": "waterfall.md::3::Cadence",
+          "section": "Cadence",
+          "concepts": [
+            "Cadence"
+          ],
+          "source": "waterfall.md",
+          "preview": "# Waterfall ## Cadence  - **No iterations.** Work proceeds linearly through phases. - Timeline is determined during plan\u2026"
+        },
+        {
+          "id": "waterfall.md::4::Scope Changes",
+          "section": "Scope Changes",
+          "concepts": [
+            "Scope",
+            "Changes"
+          ],
+          "source": "waterfall.md",
+          "preview": "# Waterfall ## Scope Changes  - **Strongly discouraged.** Scope is defined and locked during the Requirements phase. - C\u2026"
+        },
+        {
+          "id": "waterfall.md::5::Blockers",
+          "section": "Blockers",
+          "concepts": [
+            "Blockers"
+          ],
+          "source": "waterfall.md",
+          "preview": "# Waterfall ## Blockers  - Blockers in any phase halt all downstream work, since phases are sequential. - **Escalation p\u2026"
+        },
+        {
+          "id": "waterfall.md::6::Reporting & Metrics",
+          "section": "Reporting & Metrics",
+          "concepts": [
+            "Reporting",
+            "Metrics"
+          ],
+          "source": "waterfall.md",
+          "preview": "# Waterfall ## Reporting & Metrics  - **Phase gate reviews:** formal checkpoints where deliverables are reviewed before \u2026"
+        },
+        {
+          "id": "waterfall.md::7::Ceremonies / Meetings",
+          "section": "Ceremonies / Meetings",
+          "concepts": [
+            "Ceremonies",
+            "Meetings"
+          ],
+          "source": "waterfall.md",
+          "preview": "# Waterfall ## Ceremonies / Meetings  - **Kickoff meeting:** aligns stakeholders on scope, plan, and roles. - **Phase ga\u2026"
+        },
+        {
+          "id": "waterfall.md::8::Roles",
+          "section": "Roles",
+          "concepts": [
+            "Roles"
+          ],
+          "source": "waterfall.md",
+          "preview": "# Waterfall ## Roles  - **Project Manager:** central authority; owns the plan, schedule, and coordination. - **Business \u2026"
+        },
+        {
+          "id": "waterfall.md::9::Definition of Done",
+          "section": "Definition of Done",
+          "concepts": [
+            "Definition",
+            "Done"
+          ],
+          "source": "waterfall.md",
+          "preview": "# Waterfall ## Definition of Done  - **Per phase:** each phase has explicit exit criteria (deliverables reviewed, approv\u2026"
+        },
+        {
+          "id": "waterfall.md::10::Best Suited For",
+          "section": "Best Suited For",
+          "concepts": [
+            "Best",
+            "Suited"
+          ],
+          "source": "waterfall.md",
+          "preview": "# Waterfall ## Best Suited For  - Projects with **well-defined, stable requirements** (e.g., construction, manufacturing\u2026"
+        },
+        {
+          "id": "waterfall.md::11::Style-Specific: Phase Gates",
+          "section": "Style-Specific: Phase Gates",
+          "concepts": [
+            "Style-Specific",
+            "Phase",
+            "Gates"
+          ],
+          "source": "waterfall.md",
+          "preview": "# Waterfall ## Style-Specific: Phase Gates  The defining structural element of Waterfall. Each phase ends with a formal \u2026"
+        }
+      ]
+    },
+    {
+      "title": "meta/pm-styles-comparison.provenance.md",
+      "sections": [
+        {
+          "id": "meta/pm-styles-comparison.provenance.md::0::meta/pm-styles-comparison.provenance.md",
+          "section": "meta/pm-styles-comparison.provenance.md",
+          "concepts": [],
+          "source": "meta/pm-styles-comparison.provenance.md",
+          "preview": "# Provenance: Project Management Styles Comparison  - **Date:** 2026-05-29 - **Rounds:** 1 (direct search) - **Sources c\u2026"
+        }
+      ]
+    }
+  ]
+}
