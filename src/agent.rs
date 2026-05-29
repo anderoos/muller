@@ -1,6 +1,5 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
-use crate::auth;
 use crate::config;
 
 const SYSTEM_PROMPT: &str = "\
@@ -17,71 +16,153 @@ You approach every task with the following principles:
 
 ";
 
+// ---------------------------------------------------------------------------
+// Skills
+// ---------------------------------------------------------------------------
+
 fn skills_dir() -> PathBuf {
     if let Ok(exe) = std::env::current_exe() {
         if let Some(parent) = exe.parent() {
-            let release_path = parent.join("skills");
-            if release_path.exists() {
-                return release_path;
-            }
+            let p = parent.join("skills");
+            if p.exists() { return p; }
         }
     }
     PathBuf::from("skills")
 }
 
 pub fn load_skills(name: &str) -> Result<String> {
-    let base = skills_dir(); // Get the base skills directory path.
-
-    // Try flat file first: skills/NAME.md
+    let base = skills_dir();
     let flat = base.join(format!("{}.md", name));
-    // Check if the flat file path exists before trying to read it.
     if flat.exists() {
-        // `std::fs::read_to_string` reads the entire file into a `String`.
-        // `with_context` attaches a lazy error message (the closure only runs on error).
         return std::fs::read_to_string(&flat)
             .with_context(|| format!("Could not load skill '{}'", name));
     }
-
-    // Fall back to a nested path: skills/NAME/SKILLS.md
     let nested = base.join(name).join("SKILLS.md");
-    // If this also fails, the `?` in the caller will propagate the error upward.
     std::fs::read_to_string(&nested)
         .with_context(|| format!("Could not load skill '{}' from {}", name, nested.display()))
-    // Note: no `return` or `;` — in Rust, the last expression in a function is its return value.
-    // The semicolon would make it a statement returning `()`, which would be a type error here.
 }
 
-// Appends a new directive line to the autopilot skill file so it persists across runs.
 pub fn append_autopilot_directive(directive: &str) -> Result<()> {
     let path = skills_dir().join("autopilot").join("SKILLS.md");
-    // Read the existing file into an owned, mutable `String`.
     let mut content = std::fs::read_to_string(&path)
         .with_context(|| format!("Could not read autopilot skill from {}", path.display()))?;
-    // `push_str` mutates the `String` in place — appends a `&str` without reallocating if there's capacity.
     content.push_str(&format!("\n- {}", directive));
-    // Write the modified string back to disk, overwriting the file.
     std::fs::write(&path, content)
         .with_context(|| "Could not write autopilot directive")?;
     Ok(())
 }
 
-// `async fn` — this function is non-blocking. It must be `.await`-ed by the caller.
-// `prompt: &str` — borrowed string slice; the caller keeps ownership of the prompt text.
-// `skill: Option<&str>` — optionally load a named skill file to inject into the system prompt.
-pub async fn run(prompt: &str, skill: Option<&str>) -> Result<()> {
-    // `to_string()` copies the `&str` constant into a new heap-allocated `String`
-    // so we can push more text onto it below.
-    let mut system_prompt = SYSTEM_PROMPT.to_string();
+// ---------------------------------------------------------------------------
+// Shared helpers
+// ---------------------------------------------------------------------------
 
-    // Always load and prepend the autopilot directives if the file exists.
-    // `if let Ok(autopilot) = ...` — pattern match on Result; skip silently on error.
-    if let Ok(autopilot) = load_skills("autopilot") {
-        system_prompt.push_str("\n\n"); // Separate sections with blank lines.
-        system_prompt.push_str(&autopilot); // Append the autopilot skill file content.
+fn build_cmd(prompt: &str, system_prompt: &str, mcp_path: Option<&Path>) -> std::process::Command {
+    let mut cmd = std::process::Command::new("claude");
+    cmd.arg("-p").arg(prompt).arg("--system-prompt").arg(system_prompt);
+    if let Some(p) = mcp_path {
+        cmd.arg("--mcp-config").arg(p);
+    }
+    cmd
+}
+
+fn run_claude(cmd: &mut std::process::Command) -> Result<String> {
+    let output = cmd.output().context("Could not run `claude`. Is Claude Code installed?")?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let detail = match (stderr.trim().is_empty(), stdout.trim().is_empty()) {
+            (false, _)    => stderr.trim().to_string(),
+            (true, false) => stdout.trim().to_string(),
+            (true, true)  => format!("exit code {}", output.status),
+        };
+        anyhow::bail!("claude failed: {}", detail);
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
+// ---------------------------------------------------------------------------
+// Release-only helpers
+// ---------------------------------------------------------------------------
+
+fn save_plan(content: &str) -> Result<PathBuf> {
+    let dir = dirs::home_dir()
+        .context("Could not find home directory")?
+        .join(".mueller")
+        .join("plans");
+    std::fs::create_dir_all(&dir)?;
+
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+
+    let path = dir.join(format!("plan-{}.md", ts));
+    std::fs::write(&path, content)?;
+    Ok(path)
+}
+
+fn confirm(prompt: &str) -> Result<bool> {
+    use std::io::{self, Write};
+    print!("{}", prompt);
+    io::stdout().flush()?;
+    let mut input = String::new();
+    io::stdin().read_line(&mut input)?;
+    Ok(matches!(input.trim().to_lowercase().as_str(), "y" | "yes"))
+}
+
+// ---------------------------------------------------------------------------
+// Execution: plan → save → confirm → execute
+// ---------------------------------------------------------------------------
+
+fn run_release(prompt: &str, system_prompt: &str, mcp_path: Option<&Path>) -> Result<()> {
+    // Phase 1: generate a structured markdown plan without touching any tools.
+    let plan_system = format!(
+        "{}\n\n\
+        IMPORTANT: Output ONLY a structured markdown plan — do not call any tools.\n\
+        Use this hierarchy:\n\
+        # <Project Name>\n\
+        ## Epic: <name>\n\
+        ### Story: <name>\n\
+        - [ ] Task: <description>\n\
+        Cover all epics, stories, and tasks derived from the brief.",
+        system_prompt
+    );
+    let mut plan_cmd = build_cmd(prompt, &plan_system, None);
+    let plan = run_claude(&mut plan_cmd)?;
+
+    let md_path = save_plan(&plan)?;
+
+    println!("{}", plan);
+    println!("\n{}", "─".repeat(60));
+    println!("Plan saved → {}", md_path.display());
+
+    if !confirm("\nReview the plan above. Proceed with execution? [y/N] ")? {
+        println!("Cancelled. Plan retained at: {}", md_path.display());
+        return Ok(());
     }
 
-    // If a skill name was provided, load and append that skill's context too.
-    // `if let Some(skill_name) = skill` — unwraps the Option; `skill_name` is a `&str`.
+    // Phase 2: execute — Claude now has MCP access and will push to Jira/Slack.
+    println!("\nExecuting…");
+    let mut exec_cmd = build_cmd(prompt, system_prompt, mcp_path);
+    let result = run_claude(&mut exec_cmd)?;
+    println!("{}", result);
+
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Entry point
+// ---------------------------------------------------------------------------
+
+pub async fn run(prompt: &str, skill: Option<&str>) -> Result<()> {
+    // Build the complete system prompt before touching the command builder.
+    let mut system_prompt = SYSTEM_PROMPT.to_string();
+
+    if let Ok(autopilot) = load_skills("autopilot") {
+        system_prompt.push_str("\n\n");
+        system_prompt.push_str(&autopilot);
+    }
+
     if let Some(skill_name) = skill {
         if let Ok(skill_content) = load_skills(skill_name) {
             system_prompt.push_str("\n\n");
@@ -89,28 +170,9 @@ pub async fn run(prompt: &str, skill: Option<&str>) -> Result<()> {
         }
     }
 
-    // `std::process::Command` is a builder for spawning child processes.
-    // Start building a command that will run the `claude` CLI binary.
-    let mut cmd = std::process::Command::new("claude");
-    // `.arg()` appends one CLI argument. Each call returns `&mut Command` so we can chain.
-    // `-p` is the "print" (non-interactive) mode flag for the Claude CLI.
-    cmd.arg("-p").arg(prompt).arg("--system-prompt").arg(&system_prompt);
-
-    // If the user has logged in, inject their API key as an environment variable.
-    // `if let Ok(creds) = ...` — only runs if credentials exist; silently skips if not logged in.
-    if let Ok(creds) = auth::load_credentials() {
-        // `.env(key, value)` sets an environment variable for the child process only.
-        cmd.env("ANTHROPIC_API_KEY", &creds.access_token);
-    }
-
-    // Load the full config — both Jira and Slack settings live here.
     let cfg = config::load_config();
 
-    // When Slack is configured, append a standing instruction so Claude knows it can
-    // post its output there. The `slack_post_message` tool becomes available via MCP.
     if let Some(slack) = &cfg.slack {
-        // Build a human-readable destination string based on the delivery mode.
-        // `match` on an enum reference — `&config::DeliveryMode::Channel` vs `&config::DeliveryMode::DirectMessage`.
         let destination = match &slack.delivery_mode {
             config::DeliveryMode::Channel => format!("the #{} channel", slack.destination),
             config::DeliveryMode::DirectMessage => "the user via direct message".to_string(),
@@ -122,32 +184,13 @@ pub async fn run(prompt: &str, skill: Option<&str>) -> Result<()> {
         ));
     }
 
-    // `write_mcp_config` now returns `Result<Option<PathBuf>>`:
-    //   Ok(Some(path)) — at least one server configured, file written
-    //   Ok(None)       — nothing configured, no file written
-    //   Err(e)         — IO error writing the file
-    match config::write_mcp_config(&cfg) {
-        Ok(Some(path)) => { cmd.arg("--mcp-config").arg(&path); }
-        Ok(None) => eprintln!("Tip: run `mueller setup` to connect Jira and Slack."),
-        Err(e) => eprintln!("Warning: could not write MCP config: {}", e),
-    }
+    let mcp_path: Option<PathBuf> = match config::write_mcp_config(&cfg) {
+        Ok(Some(path)) => Some(path),
+        Ok(None)       => { eprintln!("Tip: run `mueller setup` to connect Jira and Slack."); None }
+        Err(e)         => { eprintln!("Warning: could not write MCP config: {}", e); None }
+    };
 
-    // `.output()` spawns the child process, waits for it to finish, and captures
-    // stdout + stderr as `Vec<u8>` byte buffers. This blocks the async task.
-    let output = cmd.output().context("Could not run `claude`. Is Claude Code installed?")?;
-
-    // Check the child process exit code. A non-zero code signals failure.
-    if !output.status.success() {
-        // `String::from_utf8_lossy` converts raw bytes to a string view, replacing
-        // any invalid UTF-8 sequences with the replacement character `\u{FFFD}`.
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        // `anyhow::bail!` is shorthand for `return Err(anyhow::anyhow!(...))`.
-        anyhow::bail!("claude failed: {}", stderr);
-    }
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    // `.trim()` on a `Cow<str>` (what `from_utf8_lossy` returns) removes surrounding whitespace.
-    println!("{}", stdout.trim());
+    run_release(prompt, &system_prompt, mcp_path.as_deref())?;
 
     Ok(())
 }

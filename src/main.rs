@@ -49,7 +49,7 @@ fn start_chromadb() -> ChromaGuard {
         return ChromaGuard { started_by_us: false };
     }
 
-    let status = process::Command::new("docker")
+    let output = process::Command::new("docker")
         .args([
             "run", "-d", "--rm",
             "--name", CONTAINER_NAME,
@@ -57,10 +57,10 @@ fn start_chromadb() -> ChromaGuard {
             "-v", &format!("{}:/chroma/chroma", CHROMA_VOLUME),
             CHROMA_IMAGE,
         ])
-        .status();
+        .output();
 
-    match status {
-        Ok(s) if s.success() => ChromaGuard { started_by_us: true },
+    match output {
+        Ok(o) if o.status.success() => ChromaGuard { started_by_us: true },
         _ => {
             eprintln!("Warning: could not start ChromaDB container.");
             ChromaGuard { started_by_us: false }
@@ -190,11 +190,22 @@ async fn main() -> Result<()> {
         }
 
         Some(Command::Init { brief }) => {
+            let brief_content = {
+                let path = std::path::Path::new(&brief);
+                if path.exists() {
+                    let abs = path.canonicalize()
+                        .unwrap_or_else(|_| path.to_path_buf());
+                    format!("Read the file at this absolute path and use its contents as the project brief: {}", abs.display())
+                } else {
+                    brief.clone()
+                }
+            };
             let prompt = format!(
                 "Start a new project from the following brief. Break it down into epics and \
-                tickets, assign owners based on role and capacity, and produce a full Jira \
-                structure ready for sprint planning.\n\nBrief: {}",
-                brief
+                tickets, do not assign owners unless explicitly told and produce a full Jira \
+                structure ready for sprint planning. Include descriptions and deliverables\
+                for each ticket. \n\nBrief: {}",
+                brief_content
             );
             agent::run(&prompt, Some("pre-project/project-initiator")).await?;
         }

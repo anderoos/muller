@@ -8,6 +8,16 @@ pub struct MuellerConfig {
     pub jira: Option<JiraConfig>,
     pub slack: Option<SlackConfig>,
     pub embedding: Option<EmbeddingConfig>,
+    pub pm_style: Option<PmStyle>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub enum PmStyle {
+    Agile,
+    Scrum,
+    Kanban,
+    Waterfall,
+    XP,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -247,6 +257,29 @@ pub fn setup_embedding() -> Result<Option<EmbeddingConfig>> {
     Ok(Some(EmbeddingConfig { provider, api_key }))
 }
 
+pub fn setup_pm_style() -> Result<PmStyle> {
+    println!("\nProject management style");
+
+    let choice = choose(
+        "Which PM methodology does your team follow?",
+        &[
+            "Agile      (iterative, values-driven)",
+            "Scrum      (sprints, ceremonies, defined roles)",
+            "Kanban     (continuous flow, WIP limits)",
+            "Waterfall  (sequential phases, fixed scope)",
+            "XP         (Extreme Programming, engineering-first)",
+        ],
+    )?;
+
+    Ok(match choice {
+        0 => PmStyle::Agile,
+        1 => PmStyle::Scrum,
+        2 => PmStyle::Kanban,
+        3 => PmStyle::Waterfall,
+        _ => PmStyle::XP,
+    })
+}
+
 // Top-level setup orchestrator called by both `mueller login` and `mueller setup`.
 pub fn run_setup() -> Result<MuellerConfig> {
     let mode = choose(
@@ -265,7 +298,8 @@ pub fn run_setup() -> Result<MuellerConfig> {
         None
     };
 
+    let pm_style  = setup_pm_style()?;
     let embedding = setup_embedding()?;
 
-    Ok(MuellerConfig { jira: Some(jira), slack, embedding })
+    Ok(MuellerConfig { jira: Some(jira), slack, pm_style: Some(pm_style), embedding })
 }
