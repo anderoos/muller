@@ -1,3 +1,12 @@
 anthropic>=0.50.0
 chromadb>=0.6.0
 openai>=1.0.0
+
+# Observability (scripts/observability.py — `mueller dashboard`)
+langsmith>=0.1.0
+fastapi>=0.110.0
+uvicorn>=0.29.0
+
+# Interface-layer tests (scripts/test_interface.py)
+langchain-core>=0.3.0
+langchain-anthropic>=0.3.0

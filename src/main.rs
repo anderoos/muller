@@ -3,12 +3,43 @@ mod agent;
 mod auth;
 mod cli;
 mod config;
+mod interface;
+mod observability;
 
 use anyhow::{Context, Result};
 use clap::Parser;
 use cli::{AutopilotCommand, Command};
+use interface::cli_adapter;
 use std::path::PathBuf;
 use std::process;
+
+/// If --dump-payload is set, serialise the payload as JSON and exit.
+/// Used by the Python integration test suite to inspect the interface layer
+/// without running the full agent pipeline.
+macro_rules! maybe_dump_payload {
+    ($flag:expr, $payload:expr) => {
+        if $flag {
+            println!("{}", serde_json::to_string_pretty(&$payload)?);
+            return Ok(());
+        }
+    };
+}
+
+/// Blocks write commands in dev builds with a clear error.
+/// Expands to a no-op in release builds (optimized away entirely).
+macro_rules! write_only_guard {
+    ($cmd:expr) => {
+        if cfg!(debug_assertions) {
+            eprintln!(
+                "\x1b[31mError:\x1b[0m '{}' is a write command and is not available in \
+                dev builds.\nBuild with \x1b[33mcargo build --release\x1b[0m to enable \
+                Jira write operations.",
+                $cmd
+            );
+            return Ok(());
+        }
+    };
+}
 
 // ---------------------------------------------------------------------------
 // ChromaDB Docker lifecycle
@@ -172,6 +203,7 @@ async fn main() -> Result<()> {
     }
 
     match cli.command {
+        // ── housekeeping commands (no agent dispatch) ────────────────────────
         Some(Command::Login) => {
             auth::login().await?;
             let cfg = config::run_setup()?;
@@ -185,118 +217,75 @@ async fn main() -> Result<()> {
             println!("✓ Configuration updated.");
         }
 
-        Some(Command::Ask { query }) => {
-            agent::run(&query, Some("ASKS")).await?;
-        }
-
-        Some(Command::Init { brief }) => {
-            let brief_content = {
-                let path = std::path::Path::new(&brief);
-                if path.exists() {
-                    let abs = path.canonicalize()
-                        .unwrap_or_else(|_| path.to_path_buf());
-                    format!("Read the file at this absolute path and use its contents as the project brief: {}", abs.display())
-                } else {
-                    brief.clone()
+        Some(Command::Dashboard) => {
+            let script = scripts_dir().join("observability.py");
+            if !script.exists() {
+                anyhow::bail!("Observability script not found at {}", script.display());
+            }
+            let status = process::Command::new("python3")
+                .arg(&script)
+                .status()
+                .context("Could not run observability.py — is python3 installed?")?;
+            if let Some(code) = status.code() {
+                if code != 0 {
+                    anyhow::bail!(
+                        "Observability server exited with code {}. If dependencies are missing, run:\n  \
+                        pip install -r {}",
+                        code,
+                        scripts_dir().join("requirements.txt").display()
+                    );
                 }
-            };
-            // TODO Prompt structure needs continued calibration
-            let prompt = format!(
-                "Start a new project from the following brief. Break it down into epics and \
-                smaller units of work, do not assign owners unless explicitly told and \
-                produce a full Jira structure ready for sprint planning. Include descriptions \
-                and deliverables for each ticket. \n\nBrief: {}",
-                brief_content
-            );
-            agent::run(&prompt, Some("pre-project/project-initiator")).await?;
-        }
-
-        Some(Command::Update { ticket }) => {
-            let prompt = format!(
-                "Update the following ticket. Apply any status changes, append meeting notes, \
-                adjust scope, or reassign as described.\n\nTicket: {}",
-                ticket
-            );
-            agent::run(&prompt, Some("ASKS")).await?;
-        }
-
-        Some(Command::Standup) => {
-            let prompt = "Trigger the daily standup relay. Prompt each team member for progress, \
-                capture blockers, and update Jira ticket statuses based on responses.";
-            agent::run(prompt, Some("active-sprint")).await?;
-        }
-
-        Some(Command::Health) => {
-            let prompt = "Run a sprint health check. Analyse current ticket statuses, \
-                cross-ticket dependencies, and velocity. Return an on-track / at-risk / \
-                off-rails verdict per flagged item with a specific recommended action.";
-            agent::run(prompt, Some("active-sprint/sprint-health-check")).await?;
-        }
-
-        Some(Command::Log { file }) => {
-            let prompt = match file {
-                Some(path) => format!(
-                    "Transcribe the meeting from the following file, extract action items, \
-                    decisions, and takeaways, and push tasks to Jira.\n\nFile: {}",
-                    path
-                ),
-                None => "Transcribe the meeting transcript provided, extract action items, \
-                    decisions, and takeaways, and push tasks to Jira. Paste the transcript now."
-                    .to_string(),
-            };
-            agent::run(&prompt, Some("meetings/meeting-note-transcriber")).await?;
-        }
-
-        Some(Command::Brief) => {
-            let prompt = "Generate a pre-meeting brief for the next calendar event. Surface \
-                open blockers relevant to attendees, tickets last discussed by the group, \
-                outstanding decisions from the prior session, and a suggested agenda.";
-            agent::run(prompt, Some("meetings/pre-meeting-briefer")).await?;
-        }
-
-        Some(Command::Scan) => {
-            let prompt = "Scan the active sprint for drift, stale tickets, slippage patterns, \
-                and accountability gaps. Flag any tickets that are off-track with a severity \
-                rating and recommended action.";
-            agent::run(prompt, Some("risk-evaluation")).await?;
-        }
-
-        Some(Command::Summarize) => {
-            let prompt = "Generate a plain-English summary of the current project. Cover the \
-                timeline, key events, decisions made, and current status. Make it readable \
-                for both technical and non-technical audiences.";
-            agent::run(prompt, Some("communication/summarizer")).await?;
-        }
-
-        Some(Command::Onboard { member }) => {
-            let prompt = format!(
-                "Generate a detailed onboarding brief for a new team member joining the project \
-                mid-flight. Cover project context, past key decisions, open blockers, their \
-                assigned tickets, and the team roster. Deliver to Slack.\n\nNew member: {}",
-                member
-            );
-            agent::run(&prompt, Some("communication/new-member-onboarder")).await?;
-        }
-
-        Some(Command::Close) => {
-            let prompt = "Close the project. Schedule the retrospective, notify stakeholders, \
-                archive the Jira board, and trigger the knowledge transfer and estimation \
-                feedback loop.";
-            agent::run(prompt, Some("project-close/project-terminator")).await?;
+            }
         }
 
         Some(Command::Autopilot { command }) => {
             let directive = match command {
-                AutopilotCommand::Add { behavior } => format!("add {}", behavior),
+                AutopilotCommand::Add { behavior }      => format!("add {}", behavior),
                 AutopilotCommand::Override { behavior } => format!("override {}", behavior),
-                AutopilotCommand::Less { behavior } => format!("less {}", behavior),
+                AutopilotCommand::Less { behavior }     => format!("less {}", behavior),
             };
             agent::append_autopilot_directive(&directive)?;
             println!("Autopilot directive saved: {}", directive);
         }
 
+        // ── Init: resolve brief path before handing to the interface layer ──
+        Some(Command::Init { ref brief }) => {
+            write_only_guard!("init");
+            let resolved_brief = {
+                let path = std::path::Path::new(brief.as_str());
+                if path.exists() {
+                    let abs = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+                    format!(
+                        "Read the file at this absolute path and use its contents as the \
+                        project brief: {}",
+                        abs.display()
+                    )
+                } else {
+                    brief.clone()
+                }
+            };
+            let effective_cmd = Command::Init { brief: resolved_brief };
+            let payload = cli_adapter::from_command(&effective_cmd);
+            maybe_dump_payload!(cli.dump_payload, payload);
+            agent::run_payload(&payload).await?;
+        }
+
+        // ── all remaining agent commands ─────────────────────────────────────
+        Some(ref cmd) => {
+            let payload = cli_adapter::from_command(cmd);
+            maybe_dump_payload!(cli.dump_payload, payload);
+            if payload.task_type.is_write() {
+                write_only_guard!(payload.task_type.as_str());
+            }
+            agent::run_payload(&payload).await?;
+        }
+
         None => match cli.query {
-            Some(query) => agent::run(&query, None).await?,
+            Some(query) => {
+                let payload = cli_adapter::from_raw_query(&query);
+                maybe_dump_payload!(cli.dump_payload, payload);
+                agent::run_payload(&payload).await?;
+            }
             None => {
                 println!("Mueller — Your personal AI project management agent\n");
                 println!("Usage:");

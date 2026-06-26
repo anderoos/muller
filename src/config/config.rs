@@ -9,6 +9,37 @@ pub struct MuellerConfig {
     pub slack: Option<SlackConfig>,
     pub embedding: Option<EmbeddingConfig>,
     pub pm_style: Option<PmStyle>,
+    // `alias` keeps configs from when this section was hosted-LangSmith-only loading.
+    #[serde(alias = "langsmith")]
+    pub observability: Option<ObservabilityConfig>,
+}
+
+/// Where `mueller dashboard` serves the local LangSmith-compatible trace
+/// server (dashboard UI + runs ingest on one port).
+pub const LOCAL_OBSERVABILITY_ENDPOINT: &str = "http://127.0.0.1:6007";
+/// Hosted LangSmith. The local server speaks the same runs protocol.
+pub const LANGSMITH_ENDPOINT: &str = "https://api.smith.langchain.com";
+
+fn hosted_endpoint() -> String {
+    LANGSMITH_ENDPOINT.to_string()
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ObservabilityConfig {
+    // Configs written before the local backend existed have no endpoint and
+    // were always hosted LangSmith.
+    #[serde(default = "hosted_endpoint")]
+    pub endpoint: String,
+    // Key for `endpoint` itself: None for the local server, required when
+    // pointing straight at hosted LangSmith.
+    #[serde(default)]
+    pub api_key: Option<String>,
+    pub project: String,
+    // When set, the local dashboard server (scripts/observability.py) also
+    // mirrors every trace to hosted LangSmith via the open-source `langsmith`
+    // Python SDK. The Rust side never sends this anywhere.
+    #[serde(default)]
+    pub langsmith_api_key: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -57,7 +88,6 @@ pub struct JiraConfig {
     pub url: String,
     pub email: String,
     pub api_token: String,
-    pub project_key: String,
 }
 
 pub fn config_path() -> PathBuf {
@@ -184,13 +214,11 @@ pub fn setup_jira() -> Result<JiraConfig> {
     let url = prompt("Jira base URL (e.g. https://yourcompany.atlassian.net)")?;
     let email = prompt("Atlassian account email")?;
     let api_token = prompt_masked("API token")?;
-    let project_key = prompt("Default project key (e.g. PROJ)")?;
 
     Ok(JiraConfig {
         url: url.trim_end_matches('/').to_string(),
         email,
         api_token,
-        project_key: project_key.to_uppercase(),
     })
 }
 
@@ -257,6 +285,52 @@ pub fn setup_embedding() -> Result<Option<EmbeddingConfig>> {
     Ok(Some(EmbeddingConfig { provider, api_key }))
 }
 
+pub fn setup_observability() -> Result<Option<ObservabilityConfig>> {
+    println!("\nObservability (optional)");
+    println!("Traces every run as prompt refinement → agent processing → output.");
+
+    let choice = choose(
+        "Where should traces go?",
+        &[
+            "Local dashboard (open source, runs on your machine — recommended)",
+            "LangSmith cloud only (requires API key)",
+            "Skip",
+        ],
+    )?;
+
+    let default_project = |p: String| if p.is_empty() { "mueller".to_string() } else { p };
+
+    match choice {
+        0 => {
+            println!("Start the dashboard any time with `mueller dashboard` → http://127.0.0.1:6007");
+            let project = default_project(prompt("Project name [mueller]")?);
+            println!("The dashboard can also mirror every trace to LangSmith cloud (smith.langchain.com).");
+            let mirror_key = prompt_masked("LangSmith API key for mirroring (lsv2_... — blank for local only)")?;
+            Ok(Some(ObservabilityConfig {
+                endpoint: LOCAL_OBSERVABILITY_ENDPOINT.to_string(),
+                api_key: None,
+                project,
+                langsmith_api_key: if mirror_key.is_empty() { None } else { Some(mirror_key) },
+            }))
+        }
+        1 => {
+            println!("Get an API key at: https://smith.langchain.com → Settings → API Keys");
+            let api_key = prompt_masked("API key (lsv2_... — leave blank to skip)")?;
+            if api_key.is_empty() {
+                return Ok(None);
+            }
+            let project = default_project(prompt("Project name [mueller]")?);
+            Ok(Some(ObservabilityConfig {
+                endpoint: LANGSMITH_ENDPOINT.to_string(),
+                api_key: Some(api_key),
+                project,
+                langsmith_api_key: None,
+            }))
+        }
+        _ => Ok(None),
+    }
+}
+
 pub fn setup_pm_style() -> Result<PmStyle> {
     println!("\nProject management style");
 
@@ -298,8 +372,9 @@ pub fn run_setup() -> Result<MuellerConfig> {
         None
     };
 
-    let pm_style  = setup_pm_style()?;
-    let embedding = setup_embedding()?;
+    let pm_style      = setup_pm_style()?;
+    let embedding     = setup_embedding()?;
+    let observability = setup_observability()?;
 
-    Ok(MuellerConfig { jira: Some(jira), slack, pm_style: Some(pm_style), embedding })
+    Ok(MuellerConfig { jira: Some(jira), slack, pm_style: Some(pm_style), embedding, observability })
 }

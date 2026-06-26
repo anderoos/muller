@@ -27,6 +27,10 @@ pub struct Cli {
     /// Re-embed changed methodology files into ChromaDB (incremental by default)
     #[arg(long)]
     pub refresh_embeddings: bool,
+
+    /// Print the PromptPayload as JSON and exit without running the agent (for tests)
+    #[arg(long, hide = true)]
+    pub dump_payload: bool,
 }
 
 // `#[derive(Subcommand)]` generates the logic to parse one of these enum variants
@@ -94,6 +98,9 @@ pub enum Command {
 
     /// Close the project: schedule retro, archive board, trigger knowledge transfer
     Close,
+
+    /// Serve the local trace dashboard (LangSmith-compatible, open source)
+    Dashboard,
 
     /// Manage autopilot behavioral directives
     Autopilot {

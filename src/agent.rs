@@ -1,6 +1,9 @@
 use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
+use serde_json::json;
 use crate::config;
+use crate::interface::PromptPayload;
+use crate::observability::Tracer;
 
 const SYSTEM_PROMPT: &str = "\
 You are Mueller, an expert AI project management agent. Your role is to work across
@@ -84,6 +87,7 @@ fn run_claude(cmd: &mut std::process::Command) -> Result<String> {
 // Release-only helpers
 // ---------------------------------------------------------------------------
 
+#[cfg(not(debug_assertions))]
 fn save_plan(content: &str) -> Result<PathBuf> {
     let dir = dirs::home_dir()
         .context("Could not find home directory")?
@@ -101,6 +105,7 @@ fn save_plan(content: &str) -> Result<PathBuf> {
     Ok(path)
 }
 
+#[cfg(not(debug_assertions))]
 fn confirm(prompt: &str) -> Result<bool> {
     use std::io::{self, Write};
     print!("{}", prompt);
@@ -111,11 +116,62 @@ fn confirm(prompt: &str) -> Result<bool> {
 }
 
 // ---------------------------------------------------------------------------
-// Execution: plan → save → confirm → execute
+// Dev: read-only Jira queries → console / Slack
 // ---------------------------------------------------------------------------
 
-fn run_release(prompt: &str, system_prompt: &str, mcp_path: Option<&Path>) -> Result<()> {
-    // Phase 1: generate a structured markdown plan without touching any tools.
+#[cfg(debug_assertions)]
+fn run_dev(prompt: &str, system_prompt: &str, mcp_path: Option<&Path>, tracer: &Tracer) -> Result<String> {
+    // Layer 1: prompt refinement — overlay the read-only directive on the base system prompt.
+    let span = tracer.span("prompt_refinement", "chain", json!({
+        "prompt": prompt,
+        "base_system_prompt": system_prompt,
+    }));
+    let mut ro_system = system_prompt.to_string();
+    ro_system.push_str(
+        "\n\nDEVELOPMENT MODE — READ ONLY: You may query Jira via MCP to fetch ticket \
+        status, sprint data, and project information. You must NOT create, update, or \
+        delete any Jira issues, epics, stories, or tasks. Write operations are reserved \
+        for production builds only.",
+    );
+    tracer.end_span(span, json!({
+        "system_prompt": ro_system,
+        "mode": "dev-read-only",
+    }));
+
+    // Layer 2: agent processing — the claude subprocess does the actual work.
+    let span = tracer.span("agent_processing", "llm", json!({
+        "prompt": prompt,
+        "system_prompt": ro_system,
+        "mcp": mcp_path.is_some(),
+    }));
+    let mut cmd = build_cmd(prompt, &ro_system, mcp_path);
+    let text = match run_claude(&mut cmd) {
+        Ok(text) => {
+            tracer.end_span(span, json!({ "response": text }));
+            text
+        }
+        Err(e) => {
+            tracer.fail_span(span, &e.to_string());
+            return Err(e);
+        }
+    };
+
+    // Layer 3: output delivery.
+    let span = tracer.span("output", "chain", json!({ "response": text }));
+    println!("{}", text);
+    tracer.end_span(span, json!({ "delivered_to": "console" }));
+
+    Ok(text)
+}
+
+// ---------------------------------------------------------------------------
+// Release: plan → save → confirm → execute (full Jira write access)
+// ---------------------------------------------------------------------------
+
+#[cfg(not(debug_assertions))]
+fn run_release(prompt: &str, system_prompt: &str, mcp_path: Option<&Path>, tracer: &Tracer) -> Result<String> {
+    // Layer 1: prompt refinement — refine the raw brief into a structured plan
+    // (an LLM call of its own, made without tool access).
     let plan_system = format!(
         "{}\n\n\
         IMPORTANT: Output ONLY a structured markdown plan — do not call any tools.\n\
@@ -127,31 +183,69 @@ fn run_release(prompt: &str, system_prompt: &str, mcp_path: Option<&Path>) -> Re
         Cover all epics, stories, and tasks derived from the brief.",
         system_prompt
     );
+    let span = tracer.span("prompt_refinement", "llm", json!({
+        "prompt": prompt,
+        "system_prompt": plan_system,
+    }));
     let mut plan_cmd = build_cmd(prompt, &plan_system, None);
-    let plan = run_claude(&mut plan_cmd)?;
+    let plan = match run_claude(&mut plan_cmd) {
+        Ok(plan) => plan,
+        Err(e) => {
+            tracer.fail_span(span, &e.to_string());
+            return Err(e);
+        }
+    };
 
     let md_path = save_plan(&plan)?;
+    tracer.end_span(span, json!({
+        "plan": plan,
+        "saved_to": md_path.display().to_string(),
+    }));
 
     println!("✓ Plan prepared — review before proceeding.");
     println!("  {}\n", md_path.display());
 
     if !confirm("\x1b[33mReview the plan above. Proceed with execution? [y/N]\x1b[0m ")? {
         println!("Cancelled. Plan retained at: {}", md_path.display());
-        return Ok(());
+        return Ok(format!("Cancelled at plan review. Plan retained at: {}", md_path.display()));
     }
 
-    // Phase 2: execute — Claude now has MCP access and will push to Jira/Slack.
+    // Layer 2: agent processing — Claude now has MCP access and will push to Jira/Slack.
     println!("\nExecuting…");
+    let span = tracer.span("agent_processing", "llm", json!({
+        "prompt": prompt,
+        "system_prompt": system_prompt,
+        "plan": plan,
+        "mcp": mcp_path.is_some(),
+    }));
     let mut exec_cmd = build_cmd(prompt, system_prompt, mcp_path);
-    let result = run_claude(&mut exec_cmd)?;
-    println!("{}", result);
+    let result = match run_claude(&mut exec_cmd) {
+        Ok(result) => {
+            tracer.end_span(span, json!({ "response": result }));
+            result
+        }
+        Err(e) => {
+            tracer.fail_span(span, &e.to_string());
+            return Err(e);
+        }
+    };
 
-    Ok(())
+    // Layer 3: output delivery.
+    let span = tracer.span("output", "chain", json!({ "response": result }));
+    println!("{}", result);
+    tracer.end_span(span, json!({ "delivered_to": "console" }));
+
+    Ok(result)
 }
 
 // ---------------------------------------------------------------------------
 // Entry point
 // ---------------------------------------------------------------------------
+
+/// Entry point for interface-layer callers: unpacks the payload and delegates.
+pub async fn run_payload(payload: &PromptPayload) -> Result<()> {
+    run(&payload.normalized_prompt, payload.skill.as_deref()).await
+}
 
 pub async fn run(prompt: &str, skill: Option<&str>) -> Result<()> {
     // Build the complete system prompt before touching the command builder.
@@ -189,7 +283,22 @@ pub async fn run(prompt: &str, skill: Option<&str>) -> Result<()> {
         Err(e)         => { eprintln!("Warning: could not write MCP config: {}", e); None }
     };
 
-    run_release(prompt, &system_prompt, mcp_path.as_deref())?;
+    let tracer = Tracer::start("mueller.run", json!({
+        "prompt": prompt,
+        "skill": skill,
+        "mode": if cfg!(debug_assertions) { "dev" } else { "release" },
+    }), &cfg);
 
-    Ok(())
+    #[cfg(debug_assertions)]
+    let outcome = run_dev(prompt, &system_prompt, mcp_path.as_deref(), &tracer);
+
+    #[cfg(not(debug_assertions))]
+    let outcome = run_release(prompt, &system_prompt, mcp_path.as_deref(), &tracer);
+
+    match &outcome {
+        Ok(output) => tracer.finish(json!({ "output": output })),
+        Err(e)     => tracer.finish_error(&e.to_string()),
+    }
+
+    outcome.map(|_| ())
 }
