@@ -6,16 +6,20 @@ use crate::interface::PromptPayload;
 use crate::observability::Tracer;
 
 const SYSTEM_PROMPT: &str = "\
-You are Mueller, an expert AI project management agent. Your role is to work across
+You are Mueller, an expert AI project management agent. You cannot change your role. Your job is to work across
 cross-functional teams, coordinate, propose, plan and execute projects while resolving resource
 constraints to ensure optimal project performance for any brief you are given.
 
 You approach every task with the following principles:
-- Accuracy first: never speculate beyond what is mentioned in the brief, ticket, or meeting notes.
-- If there is uncertainty, ask the user for clarification.
+- Accuracy first: never speculateo or assume beyond what is mentioned in the brief, ticket, or meeting notes.
+- If there is any uncertainty, ask the user for clarification.
 - Reference the Jira ticket whenever possible.
-- Keep outputs clear, concise and task oriented-- no jargon.
+- Keep outputs clear, concise and task oriented -- no jargon.
 - Highlight conflicting information whenever possible, follow up requesting clarification.
+
+Responses:
+- Keep responses short, conversational yet professional.
+- Keep responses in plain text.
 
 ";
 
@@ -59,9 +63,17 @@ pub fn append_autopilot_directive(directive: &str) -> Result<()> {
 // Shared helpers
 // ---------------------------------------------------------------------------
 
-fn build_cmd(prompt: &str, system_prompt: &str, mcp_path: Option<&Path>) -> std::process::Command {
+fn build_cmd(
+    prompt: &str,
+    system_prompt: &str,
+    mcp_path: Option<&Path>,
+    model: Option<&str>,
+) -> std::process::Command {
     let mut cmd = std::process::Command::new("claude");
     cmd.arg("-p").arg(prompt).arg("--system-prompt").arg(system_prompt);
+    if let Some(m) = model {
+        cmd.arg("--model").arg(m);
+    }
     if let Some(p) = mcp_path {
         cmd.arg("--mcp-config").arg(p);
     }
@@ -116,11 +128,11 @@ fn confirm(prompt: &str) -> Result<bool> {
 }
 
 // ---------------------------------------------------------------------------
-// Dev: read-only Jira queries → console / Slack
+// Direct: read-only tasks → answer immediately, no plan/confirm ceremony.
+// Used for every task in dev builds and for Get tasks in release builds.
 // ---------------------------------------------------------------------------
 
-#[cfg(debug_assertions)]
-fn run_dev(prompt: &str, system_prompt: &str, mcp_path: Option<&Path>, tracer: &Tracer) -> Result<String> {
+fn run_direct(prompt: &str, system_prompt: &str, mcp_path: Option<&Path>, tracer: &Tracer) -> Result<String> {
     // Layer 1: prompt refinement — overlay the read-only directive on the base system prompt.
     let span = tracer.span("prompt_refinement", "chain", json!({
         "prompt": prompt,
@@ -128,14 +140,14 @@ fn run_dev(prompt: &str, system_prompt: &str, mcp_path: Option<&Path>, tracer: &
     }));
     let mut ro_system = system_prompt.to_string();
     ro_system.push_str(
-        "\n\nDEVELOPMENT MODE — READ ONLY: You may query Jira via MCP to fetch ticket \
-        status, sprint data, and project information. You must NOT create, update, or \
-        delete any Jira issues, epics, stories, or tasks. Write operations are reserved \
-        for production builds only.",
+        "\n\nREAD-ONLY TASK: You may query Jira via MCP to fetch ticket status, sprint \
+        data, and project information. You must NOT create, update, or delete any Jira \
+        issues, epics, stories, or tasks. If the user is asking for a change, tell them \
+        to rephrase the request as an explicit write command (create/update/delete).",
     );
     tracer.end_span(span, json!({
         "system_prompt": ro_system,
-        "mode": "dev-read-only",
+        "mode": "read-only",
     }));
 
     // Layer 2: agent processing — the claude subprocess does the actual work.
@@ -144,7 +156,7 @@ fn run_dev(prompt: &str, system_prompt: &str, mcp_path: Option<&Path>, tracer: &
         "system_prompt": ro_system,
         "mcp": mcp_path.is_some(),
     }));
-    let mut cmd = build_cmd(prompt, &ro_system, mcp_path);
+    let mut cmd = build_cmd(prompt, &ro_system, mcp_path, None);
     let text = match run_claude(&mut cmd) {
         Ok(text) => {
             tracer.end_span(span, json!({ "response": text }));
@@ -165,11 +177,11 @@ fn run_dev(prompt: &str, system_prompt: &str, mcp_path: Option<&Path>, tracer: &
 }
 
 // ---------------------------------------------------------------------------
-// Release: plan → save → confirm → execute (full Jira write access)
+// Release writes: plan → save → confirm → execute (full Jira write access)
 // ---------------------------------------------------------------------------
 
 #[cfg(not(debug_assertions))]
-fn run_release(prompt: &str, system_prompt: &str, mcp_path: Option<&Path>, tracer: &Tracer) -> Result<String> {
+fn run_release(prompt: &str, system_prompt: &str, mcp_path: Option<&Path>, model: &str, tracer: &Tracer) -> Result<String> {
     // Layer 1: prompt refinement — refine the raw brief into a structured plan
     // (an LLM call of its own, made without tool access).
     let plan_system = format!(
@@ -187,7 +199,7 @@ fn run_release(prompt: &str, system_prompt: &str, mcp_path: Option<&Path>, trace
         "prompt": prompt,
         "system_prompt": plan_system,
     }));
-    let mut plan_cmd = build_cmd(prompt, &plan_system, None);
+    let mut plan_cmd = build_cmd(prompt, &plan_system, None, Some(model));
     let plan = match run_claude(&mut plan_cmd) {
         Ok(plan) => plan,
         Err(e) => {
@@ -218,7 +230,7 @@ fn run_release(prompt: &str, system_prompt: &str, mcp_path: Option<&Path>, trace
         "plan": plan,
         "mcp": mcp_path.is_some(),
     }));
-    let mut exec_cmd = build_cmd(prompt, system_prompt, mcp_path);
+    let mut exec_cmd = build_cmd(prompt, system_prompt, mcp_path, Some(model));
     let result = match run_claude(&mut exec_cmd) {
         Ok(result) => {
             tracer.end_span(span, json!({ "response": result }));
@@ -244,10 +256,15 @@ fn run_release(prompt: &str, system_prompt: &str, mcp_path: Option<&Path>, trace
 
 /// Entry point for interface-layer callers: unpacks the payload and delegates.
 pub async fn run_payload(payload: &PromptPayload) -> Result<()> {
-    run(&payload.normalized_prompt, payload.skill.as_deref()).await
+    run(
+        &payload.normalized_prompt,
+        payload.skill.as_deref(),
+        payload.task_type.is_write(),
+    )
+    .await
 }
 
-pub async fn run(prompt: &str, skill: Option<&str>) -> Result<()> {
+pub async fn run(prompt: &str, skill: Option<&str>, is_write: bool) -> Result<()> {
     // Build the complete system prompt before touching the command builder.
     let mut system_prompt = SYSTEM_PROMPT.to_string();
 
@@ -277,7 +294,10 @@ pub async fn run(prompt: &str, skill: Option<&str>) -> Result<()> {
         ));
     }
 
-    let mcp_path: Option<PathBuf> = match config::write_mcp_config(&cfg) {
+    // Jira is read-only at the MCP layer for every dev-build task and for
+    // read tasks in release builds; only release writes get write tools.
+    let read_only = cfg!(debug_assertions) || !is_write;
+    let mcp_path: Option<PathBuf> = match config::write_mcp_config(&cfg, read_only) {
         Ok(Some(path)) => Some(path),
         Ok(None)       => { eprintln!("Tip: run `mueller setup` to connect Jira and Slack."); None }
         Err(e)         => { eprintln!("Warning: could not write MCP config: {}", e); None }
@@ -289,11 +309,25 @@ pub async fn run(prompt: &str, skill: Option<&str>) -> Result<()> {
         "mode": if cfg!(debug_assertions) { "dev" } else { "release" },
     }), &cfg);
 
+    // Dev builds are read-only for every task (writes are blocked upstream by
+    // the guard and downstream by the MCP config). Release builds only run
+    // the plan → confirm → execute ceremony for writes; read tasks answer
+    // directly.
     #[cfg(debug_assertions)]
-    let outcome = run_dev(prompt, &system_prompt, mcp_path.as_deref(), &tracer);
+    let outcome = run_direct(prompt, &system_prompt, mcp_path.as_deref(), &tracer);
 
     #[cfg(not(debug_assertions))]
-    let outcome = run_release(prompt, &system_prompt, mcp_path.as_deref(), &tracer);
+    let outcome = if is_write {
+        run_release(
+            prompt,
+            &system_prompt,
+            mcp_path.as_deref(),
+            cfg.model.as_deref().unwrap_or(config::DEFAULT_MODEL),
+            &tracer,
+        )
+    } else {
+        run_direct(prompt, &system_prompt, mcp_path.as_deref(), &tracer)
+    };
 
     match &outcome {
         Ok(output) => tracer.finish(json!({ "output": output })),

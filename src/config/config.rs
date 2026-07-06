@@ -9,6 +9,10 @@ pub struct MuellerConfig {
     pub slack: Option<SlackConfig>,
     pub embedding: Option<EmbeddingConfig>,
     pub pm_style: Option<PmStyle>,
+    /// Model for all claude CLI calls. Defaults to Haiku.
+    /// Override in ~/.mueller/config.json to any model accepted by `claude --model`.
+    #[serde(default)]
+    pub model: Option<String>,
     // `alias` keeps configs from when this section was hosted-LangSmith-only loading.
     #[serde(alias = "langsmith")]
     pub observability: Option<ObservabilityConfig>,
@@ -19,6 +23,9 @@ pub struct MuellerConfig {
 pub const LOCAL_OBSERVABILITY_ENDPOINT: &str = "http://127.0.0.1:6007";
 /// Hosted LangSmith. The local server speaks the same runs protocol.
 pub const LANGSMITH_ENDPOINT: &str = "https://api.smith.langchain.com";
+
+/// Default model for all claude CLI calls. Override via `model` in ~/.mueller/config.json.
+pub const DEFAULT_MODEL: &str = "claude-haiku-4-5-20251001";
 
 fn hosted_endpoint() -> String {
     LANGSMITH_ENDPOINT.to_string()
@@ -127,18 +134,25 @@ pub fn mcp_config_path() -> PathBuf {
         .join("mcp-config.json")
 }
 
-pub fn write_mcp_config(cfg: &MuellerConfig) -> Result<Option<PathBuf>> {
+/// Write the MCP config for this run. `read_only` enforces read-only Jira at
+/// the tool layer, not just via the system-prompt directive: mcp-atlassian's
+/// READ_ONLY_MODE disables all of its write tools.
+pub fn write_mcp_config(cfg: &MuellerConfig, read_only: bool) -> Result<Option<PathBuf>> {
     let mut servers = serde_json::Map::new();
 
     if let Some(jira) = &cfg.jira {
+        let mut env = serde_json::json!({
+            "JIRA_URL": jira.url,
+            "JIRA_USERNAME": jira.email,
+            "JIRA_API_TOKEN": jira.api_token
+        });
+        if read_only {
+            env["READ_ONLY_MODE"] = serde_json::json!("true");
+        }
         servers.insert("jira".to_string(), serde_json::json!({
             "command": "uvx",
             "args": ["mcp-atlassian"],
-            "env": {
-                "JIRA_URL": jira.url,
-                "JIRA_USERNAME": jira.email,
-                "JIRA_API_TOKEN": jira.api_token
-            }
+            "env": env
         }));
     }
 
@@ -376,5 +390,5 @@ pub fn run_setup() -> Result<MuellerConfig> {
     let embedding     = setup_embedding()?;
     let observability = setup_observability()?;
 
-    Ok(MuellerConfig { jira: Some(jira), slack, pm_style: Some(pm_style), embedding, observability })
+    Ok(MuellerConfig { jira: Some(jira), slack, pm_style: Some(pm_style), embedding, observability, model: None })
 }

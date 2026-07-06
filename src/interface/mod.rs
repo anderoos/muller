@@ -7,4 +7,4 @@ pub mod types;
 mod tests;
 
 #[allow(unused_imports)]
-pub use types::{InterfaceSource, PromptPayload, TaskType};
+pub use types::{InterfaceSource, PromptError, PromptPayload, TaskType};

@@ -282,8 +282,11 @@ async fn main() -> Result<()> {
 
         None => match cli.query {
             Some(query) => {
-                let payload = cli_adapter::from_raw_query(&query);
+                let payload = cli_adapter::from_raw_query(&query).context("Invalid prompt")?;
                 maybe_dump_payload!(cli.dump_payload, payload);
+                if payload.task_type.is_write() {
+                    write_only_guard!(payload.task_type.as_str());
+                }
                 agent::run_payload(&payload).await?;
             }
             None => {

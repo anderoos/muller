@@ -1,5 +1,28 @@
 use serde::{Deserialize, Serialize};
+use std::fmt;
 use uuid::Uuid;
+
+/// Validation failure for a free-text prompt.
+#[derive(Debug, Clone, PartialEq)]
+pub enum PromptError {
+    /// Prompt was empty (or whitespace/mentions only) after normalisation.
+    Empty,
+    /// Prompt exceeded the maximum accepted length.
+    TooLong { len: usize, max: usize },
+}
+
+impl fmt::Display for PromptError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            PromptError::Empty => write!(f, "prompt is empty"),
+            PromptError::TooLong { len, max } => {
+                write!(f, "prompt is too long ({} characters, max {})", len, max)
+            }
+        }
+    }
+}
+
+impl std::error::Error for PromptError {}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
